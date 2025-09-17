@@ -1,4 +1,4 @@
-mediapipe==0.10.14
+mediapipe==0.10.14,<0.11
 opencv-python==4.10.0.84
 numpy==1.26.4
 scipy==1.11.4
