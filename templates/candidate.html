@@ -1,0 +1,420 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Candidate Stream - Interview Session</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #0f141a;
+        color: #e5e7eb;
+        min-height: 100vh;
+      }
+      .container { 
+        max-width: 1200px; 
+        margin: 0 auto; 
+        padding: 20px; 
+      }
+      .header {
+        background: #111827;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #1f2937;
+        text-align: center;
+      }
+      .header h1 {
+        color: #ffffff;
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      .header h1::before {
+        content: "👤";
+        font-size: 32px;
+      }
+      .status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        background: #14281a;
+        color: #10b981;
+        border: 1px solid #065f46;
+        display: inline-block;
+        margin-top: 10px;
+      }
+      .controls {
+        background: #111827;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #1f2937;
+      }
+      .control-group {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .input-group label { font-weight: 500; color: #d1d5db; }
+      .input-group input { padding: 8px 12px; border: 1px solid #374151; border-radius: 6px; font-size: 14px; min-width: 200px; background: #0b1220; color: #e5e7eb; }
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-primary { background: #2563eb; color: white; }
+      .btn-primary:hover { background: #1d4ed8; 
+        transform: translateY(-1px);
+      }
+      .btn-success { background: #10b981; color: white; }
+      .btn-success:hover { background: #059669; 
+        transform: translateY(-1px);
+      }
+      .btn-warning { background: #f59e0b; color: white; }
+      .btn-warning:hover { background: #d97706; 
+        transform: translateY(-1px);
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .video-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+      .video-section {
+        background: #111827;
+        border-radius: 10px;
+        padding: 20px;
+        border: 1px solid #1f2937;
+      }
+      .video-section h3 {
+        color: #f3f4f6;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .video-section h3::before {
+        content: "📹";
+        font-size: 20px;
+      }
+      .video-container {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .video-container video {
+        width: 100%;
+        height: auto;
+        max-height: 400px;
+        object-fit: contain;
+      }
+      .video-placeholder {
+        color: #9ca3af;
+        font-size: 16px;
+        text-align: center;
+      }
+      .instructions { background: #111827; border-radius: 10px;
+        padding: 20px;
+        border: 1px solid #1f2937;
+      }
+      .instructions h3 { color: #f3f4f6;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .instructions h3::before {
+        content: "📋";
+        font-size: 20px;
+      }
+      .instructions ol { color: #d1d5db;
+        line-height: 1.6;
+        padding-left: 20px;
+      }
+      .instructions li {
+        margin-bottom: 8px;
+      }
+      @media (max-width: 768px) {
+        .video-grid { grid-template-columns: 1fr; }
+        .control-group { flex-direction: column; align-items: stretch; }
+        .input-group { justify-content: center; }
+        .input-group input { min-width: auto; width: 100%; }
+      }
+    </style>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Candidate Stream</h1>
+        <div class="status" id="status">Ready to start</div>
+      </div>
+
+      <div class="controls">
+        <div class="control-group">
+          <div class="input-group">
+            <label>Name:</label>
+            <input id="name" placeholder="Enter your name" />
+          </div>
+          <button id="start" class="btn btn-primary">
+            <span>▶️</span> Start Session
+          </button>
+          <button id="toggleMic" class="btn btn-success">
+            <span>🎤</span> Mic On
+          </button>
+          <button id="shareScreen" class="btn btn-warning">
+            <span>🖥️</span> Share Screen
+          </button>
+        </div>
+      </div>
+
+      <div class="video-grid">
+        <div class="video-section">
+          <h3>Webcam Preview</h3>
+          <div class="video-container">
+            <video id="webcam" autoplay playsinline muted></video>
+            <div class="video-placeholder" id="webcamPlaceholder">Webcam will appear here</div>
+          </div>
+        </div>
+        
+        <div class="video-section">
+          <h3>Screen Preview</h3>
+          <div class="video-container">
+            <video id="screen" autoplay playsinline muted></video>
+            <div class="video-placeholder" id="screenPlaceholder">Screen share will appear here</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="instructions">
+        <h3>Instructions</h3>
+        <ol>
+          <li>Enter your name in the field above</li>
+          <li>Click "Start Session" to begin streaming</li>
+          <li>Allow camera and microphone permissions when prompted</li>
+          <li>Click "Share Screen" if you need to share your screen</li>
+          <li>Ensure good lighting and stable internet connection</li>
+          <li>Look at the camera and speak clearly during the interview</li>
+        </ol>
+      </div>
+    </div>
+
+    <script>
+      const socket = io();
+      const statusEl = document.getElementById('status');
+      const startBtn = document.getElementById('start');
+      const nameInput = document.getElementById('name');
+      const toggleMicBtn = document.getElementById('toggleMic');
+      const shareScreenBtn = document.getElementById('shareScreen');
+
+      const webcamVideo = document.getElementById('webcam');
+      const screenVideo = document.getElementById('screen');
+      const webcamPlaceholder = document.getElementById('webcamPlaceholder');
+      const screenPlaceholder = document.getElementById('screenPlaceholder');
+
+      let webcamStream = null;
+      let screenStream = null;
+      let micStream = null;
+      let webcamCanvas = null;
+      let screenCanvas = null;
+      let webcamInterval = null;
+      let screenInterval = null;
+      let audioProcessor = null;
+      let audioCtx = null;
+
+      function updateStatus(message, type = 'info') {
+        statusEl.textContent = message;
+        statusEl.className = 'status';
+        if (type === 'error') {
+          statusEl.style.background = '#ffeaea';
+          statusEl.style.color = '#e74c3c';
+          statusEl.style.borderColor = '#e74c3c';
+        } else if (type === 'success') {
+          statusEl.style.background = '#e8f5e8';
+          statusEl.style.color = '#27ae60';
+          statusEl.style.borderColor = '#2ecc71';
+        }
+      }
+
+      function start() {
+        const name = nameInput.value.trim();
+        if (name) {
+          socket.emit('candidate_info', { name });
+          updateStatus(`Name set: ${name}`, 'success');
+        } else {
+          updateStatus('Please enter a name', 'error');
+          return;
+        }
+        startWebcam();
+        updateStatus(`Streaming as ${name}...`, 'success');
+      }
+
+      async function startWebcam() {
+        try {
+          webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+          webcamVideo.srcObject = webcamStream;
+          webcamVideo.style.display = 'block';
+          webcamPlaceholder.style.display = 'none';
+          
+          webcamCanvas = document.createElement('canvas');
+          webcamCanvas.width = 640;
+          webcamCanvas.height = 480;
+
+          const ctx = webcamCanvas.getContext('2d');
+          const fps = 8;
+
+          const startSending = () => {
+            if (webcamInterval) clearInterval(webcamInterval);
+            webcamInterval = setInterval(() => {
+              if (!webcamCanvas || !socket.connected) return;
+              ctx.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+              const dataUrl = webcamCanvas.toDataURL('image/jpeg', 0.6);
+              socket.emit('frame', { kind: 'webcam', image: dataUrl });
+            }, 1000 / fps);
+          };
+
+          if (webcamVideo.readyState >= 2) {
+            startSending();
+          } else {
+            webcamVideo.onloadeddata = startSending;
+          }
+        } catch (err) {
+          console.error('Webcam error', err);
+          updateStatus('Webcam permission denied', 'error');
+        }
+      }
+
+      async function startScreen() {
+        try {
+          screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+          screenVideo.srcObject = screenStream;
+          screenVideo.style.display = 'block';
+          screenPlaceholder.style.display = 'none';
+          
+          screenCanvas = document.createElement('canvas');
+          const [track] = screenStream.getVideoTracks();
+          const settings = track.getSettings();
+          const targetW = Math.min(1280, settings.width || 1280);
+          const targetH = Math.min(720, settings.height || 720);
+          screenCanvas.width = targetW;
+          screenCanvas.height = targetH;
+
+          const ctx = screenCanvas.getContext('2d');
+          const fps = 3;
+          screenInterval = setInterval(() => {
+            if (!screenCanvas || !socket.connected) return;
+            ctx.drawImage(screenVideo, 0, 0, screenCanvas.width, screenCanvas.height);
+            const dataUrl = screenCanvas.toDataURL('image/jpeg', 0.5);
+            socket.emit('frame', { kind: 'screen', image: dataUrl });
+          }, 1000 / fps);
+
+          screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+            if (screenInterval) { clearInterval(screenInterval); screenInterval = null; }
+            screenVideo.srcObject = null;
+            screenVideo.style.display = 'none';
+            screenPlaceholder.style.display = 'block';
+            updateStatus('Screen sharing ended', 'info');
+          });
+          
+          updateStatus('Screen sharing active', 'success');
+        } catch (err) {
+          console.error('Screen share error', err);
+          updateStatus('Screen share blocked or cancelled', 'error');
+        }
+      }
+
+      async function toggleMic() {
+        try {
+          if (!micStream) {
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
+            const source = audioCtx.createMediaStreamSource(micStream);
+            const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+            audioProcessor = processor;
+            source.connect(processor);
+            processor.connect(audioCtx.destination);
+            processor.onaudioprocess = (e) => {
+              if (!socket.connected) return;
+              const input = e.inputBuffer.getChannelData(0);
+              const buf = new ArrayBuffer(input.length * 2);
+              const view = new DataView(buf);
+              for (let i = 0; i < input.length; i++) {
+                let s = Math.max(-1, Math.min(1, input[i]));
+                view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+              }
+              let binary = '';
+              const bytes = new Uint8Array(buf);
+              for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+              const b64 = btoa(binary);
+              if (b64 && b64.length > 0) {
+                socket.emit('audio', { b64, sampleRate: audioCtx.sampleRate });
+              }
+            };
+            toggleMicBtn.innerHTML = '<span>🔇</span> Mic Off';
+            toggleMicBtn.className = 'btn btn-warning';
+            updateStatus('Microphone enabled', 'success');
+          } else {
+            const tracks = micStream.getTracks();
+            tracks.forEach(t => t.stop());
+            micStream = null;
+            if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
+            toggleMicBtn.innerHTML = '<span>🎤</span> Mic On';
+            toggleMicBtn.className = 'btn btn-success';
+            updateStatus('Microphone disabled', 'info');
+          }
+        } catch (err) {
+          console.error('Mic error', err);
+          updateStatus('Microphone permission denied', 'error');
+        }
+      }
+
+      document.getElementById('start').addEventListener('click', start);
+      document.getElementById('shareScreen').addEventListener('click', startScreen);
+      document.getElementById('toggleMic').addEventListener('click', toggleMic);
+
+      socket.on('connect', () => {
+        updateStatus('Connected to server', 'success');
+      });
+
+      socket.on('disconnect', () => {
+        updateStatus('Disconnected from server', 'error');
+      });
+    </script>
+  </body>
+</html>
