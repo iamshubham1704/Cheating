@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ai-interview-analysis
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements_deploy.txt
+    startCommand: python server_deploy.py
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: SECRET_KEY
+        generateValue: true
