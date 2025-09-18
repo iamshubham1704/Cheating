@@ -3,7 +3,7 @@ services:
     name: ai-interview-analysis
     env: python
     plan: free
-    buildCommand: pip install -r requirements_deploy.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: python server_deploy.py
     envVars:
       - key: PORT
