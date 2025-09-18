@@ -21,6 +21,9 @@ class BehaviorMetrics:
     mouth_open_ratio: float
     fidget_score: float
     hand_to_face: bool
+    holding_object: bool
+    object_kind: str
+    object_confidence: float
 
 
 class BehaviorAnalyzer:
@@ -63,6 +66,11 @@ class BehaviorAnalyzer:
             face_landmarks, left_hand_landmarks, right_hand_landmarks, frame_size=(w, h)
         )
 
+        # Object in hand detection (phone/paper heuristic)
+        obj_holding, obj_kind, obj_conf = self._detect_object_near_hands(
+            frame_bgr, left_hand_landmarks, right_hand_landmarks, frame_size=(w, h)
+        )
+
         return BehaviorMetrics(
             posture=posture_label,
             head_roll_deg=head_roll,
@@ -72,6 +80,9 @@ class BehaviorAnalyzer:
             mouth_open_ratio=mouth_open_ratio,
             fidget_score=fidget_score,
             hand_to_face=hand_to_face_flag,
+            holding_object=obj_holding,
+            object_kind=obj_kind,
+            object_confidence=obj_conf,
         )
 
     # --------------------------- Helper methods -----------------------------
@@ -234,6 +245,94 @@ class BehaviorAnalyzer:
                 min_dist = min(min_dist, self._safe_distance(pt, face_center))
 
         return bool(min_dist < threshold)
+
+    # ----------------------- Object detection heuristics ----------------------
+    def _detect_object_near_hands(
+        self,
+        frame_bgr: np.ndarray,
+        left_hand_landmarks: Optional[object],
+        right_hand_landmarks: Optional[object],
+        frame_size: Tuple[int, int],
+    ) -> Tuple[bool, str, float]:
+        """Heuristic detection of rectangular objects (phone/paper) near hands.
+
+        Returns (holding_object, kind, confidence).
+        kind in {"phone", "paper", "unknown"}.
+        """
+        h, w = frame_bgr.shape[:2]
+        best_kind = "unknown"
+        best_conf = 0.0
+        holding = False
+
+        for hand in (left_hand_landmarks, right_hand_landmarks):
+            hand_xy = self._landmarks_to_xy_array(hand, frame_size)
+            if hand_xy is None:
+                continue
+            x_min = max(0, int(np.min(hand_xy[:, 0]) - 20))
+            y_min = max(0, int(np.min(hand_xy[:, 1]) - 20))
+            x_max = min(w - 1, int(np.max(hand_xy[:, 0]) + 20))
+            y_max = min(h - 1, int(np.max(hand_xy[:, 1]) + 20))
+            if x_max - x_min < 20 or y_max - y_min < 20:
+                continue
+
+            roi = frame_bgr[y_min:y_max, x_min:x_max]
+            if roi.size == 0:
+                continue
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+            edges = cv2.Canny(blur, 30, 120)
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                continue
+
+            area_roi = float(roi.shape[0] * roi.shape[1])
+            brightness = float(np.mean(gray)) / 255.0
+            edge_density = float(np.count_nonzero(edges)) / max(1.0, area_roi)
+
+            for cnt in contours:
+                area = float(cv2.contourArea(cnt))
+                if area < area_roi * 0.015:
+                    continue
+                peri = cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
+                rect_like = len(approx) in (4, 5, 6)
+                rect = cv2.boundingRect(cnt)
+                _, _, ww, hh = rect
+                if ww <= 0 or hh <= 0:
+                    continue
+                aspect = float(max(ww, hh) / max(1.0, min(ww, hh)))
+                fill_ratio = float(area / (ww * hh))
+
+                # Classify
+                conf_phone = 0.0
+                conf_paper = 0.0
+                if rect_like and fill_ratio > 0.5:
+                    # Phone: darker OR medium brightness, elongated rectangle, decent edge density
+                    if aspect >= 1.2 and aspect <= 4.0 and brightness < 0.7:
+                        conf_phone = 0.5
+                        conf_phone += 0.2 * min(1.0, (aspect - 1.2) / 2.8)
+                        conf_phone += 0.2 * (1.0 - min(1.0, (brightness - 0.2) / 0.5))
+                        conf_phone += 0.1 * min(1.0, edge_density / 0.15)
+                    # Paper: bright rectangle covering larger portion of ROI
+                    coverage = area / area_roi
+                    if brightness > 0.6 and coverage > 0.12 and aspect <= 4.0:
+                        conf_paper = 0.55
+                        conf_paper += 0.25 * min(1.0, (brightness - 0.6) / 0.3)
+                        conf_paper += 0.2 * min(1.0, coverage / 0.35)
+
+                # Choose best for this contour
+                if conf_phone > best_conf:
+                    best_conf = conf_phone
+                    best_kind = "phone"
+                    holding = True
+                if conf_paper > best_conf:
+                    best_conf = conf_paper
+                    best_kind = "paper"
+                    holding = True
+
+        if best_conf < 0.45:
+            return False, "unknown", float(best_conf)
+        return holding, best_kind, float(np.clip(best_conf, 0.0, 1.0))
 
 
 def draw_overlay(frame_bgr: np.ndarray, metrics: BehaviorMetrics) -> None:

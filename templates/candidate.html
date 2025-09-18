@@ -100,6 +100,43 @@
         cursor: not-allowed;
         transform: none;
       }
+      .btn-danger { background: #dc2626; color: white; }
+      .btn-danger:hover { background: #b91c1c; 
+        transform: translateY(-1px);
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+      }
+      .modal-content {
+        background-color: #111827;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #1f2937;
+        border-radius: 10px;
+        width: 80%;
+        max-width: 500px;
+        text-align: center;
+      }
+      .modal-content h3 {
+        color: #f3f4f6;
+        margin-bottom: 15px;
+      }
+      .modal-content p {
+        color: #d1d5db;
+        margin-bottom: 20px;
+      }
+      .modal-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+      }
       .video-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -162,6 +199,23 @@
         content: "📋";
         font-size: 20px;
       }
+      .alert-banner {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #fef3c7;
+        color: #92400e;
+        border: 1px solid #f59e0b;
+        border-radius: 8px;
+        padding: 10px 16px;
+        z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: none;
+        max-width: 90%;
+        text-align: center;
+        font-weight: 600;
+      }
       .instructions ol { color: #d1d5db;
         line-height: 1.6;
         padding-left: 20px;
@@ -180,6 +234,7 @@
   </head>
   <body>
     <div class="container">
+      <div id="candidateAlert" class="alert-banner">Please remove prohibited items. Cheating is not allowed.</div>
       <div class="header">
         <h1>Candidate Stream</h1>
         <div class="status" id="status">Ready to start</div>
@@ -199,6 +254,9 @@
           </button>
           <button id="shareScreen" class="btn btn-warning">
             <span>🖥️</span> Share Screen
+          </button>
+          <button id="leaveRoomBtn" class="btn btn-danger" style="display: none;">
+            <span>🚪</span> Leave Interview Room
           </button>
         </div>
       </div>
@@ -234,6 +292,18 @@
       </div>
     </div>
 
+    <!-- Leave Room Confirmation Modal -->
+    <div id="leaveRoomModal" class="modal">
+      <div class="modal-content">
+        <h3>Leave Interview Room</h3>
+        <p>Are you sure you want to leave the interview room? This will end your interview session.</p>
+        <div class="modal-buttons">
+          <button id="confirmLeaveBtn" class="btn btn-danger">Yes, Leave Room</button>
+          <button id="cancelLeaveBtn" class="btn btn-warning">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       const socket = io();
       const statusEl = document.getElementById('status');
@@ -241,6 +311,10 @@
       const nameInput = document.getElementById('name');
       const toggleMicBtn = document.getElementById('toggleMic');
       const shareScreenBtn = document.getElementById('shareScreen');
+      const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+      const leaveRoomModal = document.getElementById('leaveRoomModal');
+      const confirmLeaveBtn = document.getElementById('confirmLeaveBtn');
+      const cancelLeaveBtn = document.getElementById('cancelLeaveBtn');
 
       const webcamVideo = document.getElementById('webcam');
       const screenVideo = document.getElementById('screen');
@@ -256,6 +330,7 @@
       let screenInterval = null;
       let audioProcessor = null;
       let audioCtx = null;
+      let speechRec = null;
 
       function updateStatus(message, type = 'info') {
         statusEl.textContent = message;
@@ -276,6 +351,7 @@
         if (name) {
           socket.emit('candidate_info', { name });
           updateStatus(`Name set: ${name}`, 'success');
+          leaveRoomBtn.style.display = 'flex';
         } else {
           updateStatus('Please enter a name', 'error');
           return;
@@ -386,6 +462,23 @@
                 socket.emit('audio', { b64, sampleRate: audioCtx.sampleRate });
               }
             };
+            // Start browser speech recognition for transcript (best-effort)
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SR) {
+              speechRec = new SR();
+              speechRec.continuous = true;
+              speechRec.interimResults = true;
+              speechRec.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                  const res = event.results[i];
+                  if (res.isFinal) {
+                    const text = res[0].transcript.trim();
+                    if (text) socket.emit('transcript', { text });
+                  }
+                }
+              };
+              try { speechRec.start(); } catch (e) {}
+            }
             toggleMicBtn.innerHTML = '<span>🔇</span> Mic Off';
             toggleMicBtn.className = 'btn btn-warning';
             updateStatus('Microphone enabled', 'success');
@@ -394,6 +487,7 @@
             tracks.forEach(t => t.stop());
             micStream = null;
             if (audioProcessor) { audioProcessor.disconnect(); audioProcessor = null; }
+            if (speechRec) { try { speechRec.stop(); } catch(e){} speechRec = null; }
             toggleMicBtn.innerHTML = '<span>🎤</span> Mic On';
             toggleMicBtn.className = 'btn btn-success';
             updateStatus('Microphone disabled', 'info');
@@ -408,12 +502,61 @@
       document.getElementById('shareScreen').addEventListener('click', startScreen);
       document.getElementById('toggleMic').addEventListener('click', toggleMic);
 
+      // Leave Room functionality
+      leaveRoomBtn.addEventListener('click', () => {
+        leaveRoomModal.style.display = 'block';
+      });
+
+      confirmLeaveBtn.addEventListener('click', () => {
+        socket.emit('end_interview', {});
+        leaveRoomModal.style.display = 'none';
+        // Stop all streams
+        if (webcamStream) {
+          webcamStream.getTracks().forEach(track => track.stop());
+          webcamStream = null;
+        }
+        if (screenStream) {
+          screenStream.getTracks().forEach(track => track.stop());
+          screenStream = null;
+        }
+        if (micStream) {
+          micStream.getTracks().forEach(track => track.stop());
+          micStream = null;
+        }
+        // Clear intervals
+        if (webcamInterval) clearInterval(webcamInterval);
+        if (screenInterval) clearInterval(screenInterval);
+        // Redirect to home page
+        window.location.href = '/';
+      });
+
+      cancelLeaveBtn.addEventListener('click', () => {
+        leaveRoomModal.style.display = 'none';
+      });
+
+      // Close modal when clicking outside
+      window.addEventListener('click', (event) => {
+        if (event.target === leaveRoomModal) {
+          leaveRoomModal.style.display = 'none';
+        }
+      });
+
       socket.on('connect', () => {
         updateStatus('Connected to server', 'success');
       });
 
       socket.on('disconnect', () => {
         updateStatus('Disconnected from server', 'error');
+      });
+
+      // Receive server alerts aimed at candidate
+      socket.on('alert_candidate', (payload) => {
+        const banner = document.getElementById('candidateAlert');
+        if (!banner) return;
+        const msg = (payload && payload.message) ? payload.message : 'Suspicious activity detected.';
+        banner.textContent = msg;
+        banner.style.display = 'block';
+        setTimeout(() => { banner.style.display = 'none'; }, 6000);
       });
     </script>
   </body>

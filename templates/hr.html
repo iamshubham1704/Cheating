@@ -178,9 +178,133 @@
       .confidence { color: #10b981; }
       .cheating { color: #ef4444; }
       .nervous { color: #f59e0b; }
+      
+      .questions-container {
+        background: #0b1220;
+        border: 1px solid #1f2937;
+        border-radius: 8px;
+        padding: 15px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      
+      .question-category {
+        margin-bottom: 20px;
+      }
+      
+      .question-category:last-child {
+        margin-bottom: 0;
+      }
+      
+      .question-category h5 {
+        color: #f3f4f6;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #374151;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .question-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      
+      .question-list li {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        color: #d1d5db;
+        font-size: 13px;
+        line-height: 1.4;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+      }
+      
+      .question-list li:hover {
+        background: #1f2937;
+        border-color: #374151;
+        transform: translateX(2px);
+      }
+      
+      .question-list li:last-child {
+        margin-bottom: 0;
+      }
+      
+      .question-list li::before {
+        content: "❓";
+        margin-right: 8px;
+        font-size: 12px;
+        opacity: 0.7;
+      }
       @media (max-width: 1200px) {
         .main-content { grid-template-columns: 1fr 1fr; }
         .metrics-panel { grid-column: 1 / -1; }
+      }
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 5px;
+      }
+      .btn-danger { background: #dc2626; color: white; }
+      .btn-danger:hover { background: #b91c1c; 
+        transform: translateY(-1px);
+      }
+      .btn-info { background: #0891b2; color: white; }
+      .btn-info:hover { background: #0e7490; 
+        transform: translateY(-1px);
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+      }
+      .modal-content {
+        background-color: #111827;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #1f2937;
+        border-radius: 10px;
+        width: 80%;
+        max-width: 500px;
+        text-align: center;
+      }
+      .modal-content h3 {
+        color: #f3f4f6;
+        margin-bottom: 15px;
+      }
+      .modal-content p {
+        color: #d1d5db;
+        margin-bottom: 20px;
+      }
+      .modal-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
       }
       @media (max-width: 768px) {
         .main-content { grid-template-columns: 1fr; }
@@ -195,7 +319,15 @@
         <h1>HR Dashboard</h1>
         <div class="candidate-info">
           <div class="candidate-name" id="candidateName">Candidate: -</div>
-          <div class="status" id="status">Connecting...</div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="status" id="status">Connecting...</div>
+            <button id="leaveRoomBtn" class="btn btn-danger" style="display: none;">
+              <span>🚪</span> Leave Interview Room
+            </button>
+            <button id="downloadReportBtn" class="btn btn-info" style="display: none;">
+              <span>📄</span> Download Analysis Report
+            </button>
+          </div>
         </div>
       </div>
 
@@ -247,6 +379,63 @@
             </div>
             <div class="metric-box" id="meters">{}</div>
           </div>
+
+          <div class="metric-section">
+            <h4>Follow-up Questions</h4>
+            <div class="questions-container" id="followUpQuestions">
+              <div class="question-category">
+                <h5>Behavioral Questions</h5>
+                <ul class="question-list">
+                  <li>Can you tell me about a time when you had to work under pressure?</li>
+                  <li>Describe a situation where you had to solve a complex problem.</li>
+                  <li>How do you handle stress in the workplace?</li>
+                  <li>Tell me about a time you had to work with a difficult team member.</li>
+                </ul>
+              </div>
+              
+              <div class="question-category">
+                <h5>Technical Deep Dive</h5>
+                <ul class="question-list">
+                  <li>Can you walk me through your thought process for [specific technical problem]?</li>
+                  <li>How would you approach debugging this issue?</li>
+                  <li>What's your experience with [relevant technology]?</li>
+                  <li>Can you explain this concept in simple terms?</li>
+                </ul>
+              </div>
+              
+              <div class="question-category">
+                <h5>Scenario-Based</h5>
+                <ul class="question-list">
+                  <li>If you were given this project, how would you start?</li>
+                  <li>What would you do if you disagreed with your manager's decision?</li>
+                  <li>How would you prioritize multiple urgent tasks?</li>
+                  <li>Describe how you would handle a client complaint.</li>
+                </ul>
+              </div>
+              
+              <div class="question-category">
+                <h5>Clarification Questions</h5>
+                <ul class="question-list">
+                  <li>Can you elaborate on that point?</li>
+                  <li>What specific challenges did you face?</li>
+                  <li>How did you measure success in that project?</li>
+                  <li>What would you do differently next time?</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leave Room Confirmation Modal -->
+    <div id="leaveRoomModal" class="modal">
+      <div class="modal-content">
+        <h3>Leave Interview Room</h3>
+        <p>Are you sure you want to leave the interview room? This will end the current interview session.</p>
+        <div class="modal-buttons">
+          <button id="confirmLeaveBtn" class="btn btn-danger">Yes, Leave Room</button>
+          <button id="cancelLeaveBtn" class="btn btn-info">Cancel</button>
         </div>
       </div>
     </div>
@@ -265,6 +454,11 @@
       const confidenceMeter = document.getElementById('confidenceMeter');
       const cheatingMeter = document.getElementById('cheatingMeter');
       const nervousMeter = document.getElementById('nervousMeter');
+      const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+      const downloadReportBtn = document.getElementById('downloadReportBtn');
+      const leaveRoomModal = document.getElementById('leaveRoomModal');
+      const confirmLeaveBtn = document.getElementById('confirmLeaveBtn');
+      const cancelLeaveBtn = document.getElementById('cancelLeaveBtn');
 
       socket.on('connect', () => {
         statusEl.textContent = 'Connected to server';
@@ -285,6 +479,9 @@
       socket.on('candidate_info', (info) => {
         const name = (info && info.name) ? info.name : '-';
         nameEl.textContent = `Candidate: ${name}`;
+        if (name !== '-') {
+          leaveRoomBtn.style.display = 'flex';
+        }
         console.log('Received candidate info:', info);
       });
 
@@ -322,6 +519,13 @@
         updateMeters(m);
       });
 
+      socket.on('interview_summary', (summary) => {
+        console.log('Interview summary received:', summary);
+        downloadReportBtn.style.display = 'flex';
+        // Store summary for PDF generation
+        window.currentInterviewSummary = summary;
+      });
+
       function updateMeters(meters) {
         if (meters.confidence_meter !== undefined) {
           confidenceMeter.textContent = (meters.confidence_meter * 100).toFixed(1) + '%';
@@ -332,7 +536,136 @@
         if (meters.nervous_meter !== undefined) {
           nervousMeter.textContent = (meters.nervous_meter * 100).toFixed(1) + '%';
         }
+        
+        // Update follow-up questions based on analysis
+        updateFollowUpQuestions(meters);
       }
+      
+      function updateFollowUpQuestions(meters) {
+        const questionsContainer = document.getElementById('followUpQuestions');
+        if (!questionsContainer || !meters) return;
+        
+        // Get current meter values
+        const confidence = meters.confidence_meter || 0;
+        const cheating = meters.cheating_meter || 0;
+        const nervous = meters.nervous_meter || 0;
+        
+        // Highlight relevant question categories based on analysis
+        const categories = questionsContainer.querySelectorAll('.question-category');
+        
+        categories.forEach(category => {
+          const categoryTitle = category.querySelector('h5').textContent.toLowerCase();
+          const questions = category.querySelectorAll('.question-list li');
+          
+          // Reset all questions
+          questions.forEach(q => {
+            q.style.opacity = '1';
+            q.style.borderLeft = 'none';
+          });
+          
+          // Highlight questions based on analysis
+          if (categoryTitle.includes('behavioral')) {
+            if (nervous > 0.6) {
+              questions[2].style.borderLeft = '3px solid #f59e0b'; // Stress handling
+              questions[2].style.opacity = '1';
+            }
+            if (confidence < 0.4) {
+              questions[0].style.borderLeft = '3px solid #ef4444'; // Pressure situations
+              questions[0].style.opacity = '1';
+            }
+          } else if (categoryTitle.includes('technical')) {
+            if (cheating > 0.5) {
+              questions[1].style.borderLeft = '3px solid #ef4444'; // Debugging approach
+              questions[1].style.opacity = '1';
+            }
+            if (confidence < 0.5) {
+              questions[3].style.borderLeft = '3px solid #f59e0b'; // Explain concepts
+              questions[3].style.opacity = '1';
+            }
+          } else if (categoryTitle.includes('scenario')) {
+            if (nervous > 0.5) {
+              questions[1].style.borderLeft = '3px solid #f59e0b'; // Disagree with manager
+              questions[1].style.opacity = '1';
+            }
+            if (cheating > 0.4) {
+              questions[0].style.borderLeft = '3px solid #ef4444'; // Project approach
+              questions[0].style.opacity = '1';
+            }
+          }
+        });
+      }
+      
+      // Add click functionality to questions
+      document.addEventListener('DOMContentLoaded', function() {
+        const questionItems = document.querySelectorAll('.question-list li');
+        questionItems.forEach(item => {
+          item.addEventListener('click', function() {
+            // Copy question to clipboard
+            const questionText = this.textContent.replace('❓', '').trim();
+            navigator.clipboard.writeText(questionText).then(() => {
+              // Visual feedback
+              this.style.background = '#10b981';
+              this.style.color = '#ffffff';
+              setTimeout(() => {
+                this.style.background = '';
+                this.style.color = '';
+              }, 1000);
+            });
+          });
+        });
+      });
+
+      // Leave Room functionality
+      leaveRoomBtn.addEventListener('click', () => {
+        leaveRoomModal.style.display = 'block';
+      });
+
+      confirmLeaveBtn.addEventListener('click', () => {
+        socket.emit('end_interview', {});
+        leaveRoomModal.style.display = 'none';
+        // Redirect to home page or show end message
+        window.location.href = '/';
+      });
+
+      cancelLeaveBtn.addEventListener('click', () => {
+        leaveRoomModal.style.display = 'none';
+      });
+
+      // Download Report functionality
+      downloadReportBtn.addEventListener('click', () => {
+        if (window.currentInterviewSummary) {
+          // Request PDF generation from server
+          fetch('/generate_pdf', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(window.currentInterviewSummary)
+          })
+          .then(response => response.blob())
+          .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `interview_analysis_${window.currentInterviewSummary.candidate_name || 'candidate'}_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+          })
+          .catch(error => {
+            console.error('Error generating PDF:', error);
+            alert('Error generating PDF report. Please try again.');
+          });
+        }
+      });
+
+      // Close modal when clicking outside
+      window.addEventListener('click', (event) => {
+        if (event.target === leaveRoomModal) {
+          leaveRoomModal.style.display = 'none';
+        }
+      });
     </script>
   </body>
 </html>
