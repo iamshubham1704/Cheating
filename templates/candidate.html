@@ -39,6 +39,19 @@
         content: "👤";
         font-size: 32px;
       }
+      .camera-notice {
+        background: #1e3a8a;
+        border: 1px solid #3b82f6;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 10px 0;
+        font-size: 14px;
+        color: #dbeafe;
+        text-align: center;
+      }
+      .camera-notice strong {
+        color: #ffffff;
+      }
       .status {
         padding: 8px 16px;
         border-radius: 20px;
@@ -237,6 +250,10 @@
       <div id="candidateAlert" class="alert-banner">Please remove prohibited items. Cheating is not allowed.</div>
       <div class="header">
         <h1>Candidate Stream</h1>
+        <div class="camera-notice">
+          <strong>📹 Camera Access Required:</strong> This interview requires camera and microphone access. 
+          Please ensure you're using HTTPS and allow permissions when prompted.
+        </div>
         <div class="status" id="status">Ready to start</div>
       </div>
 
@@ -362,7 +379,30 @@
 
       async function startWebcam() {
         try {
-          webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+          // Check if we're on HTTPS or localhost
+          const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+          if (!isSecure) {
+            updateStatus('Camera access requires HTTPS. Please use https://your-app.onrender.com', 'error');
+            return;
+          }
+
+          // Check if getUserMedia is supported
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            updateStatus('Camera access not supported in this browser', 'error');
+            return;
+          }
+
+          updateStatus('Requesting camera access...', 'info');
+          
+          webcamStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              width: { ideal: 640 }, 
+              height: { ideal: 480 },
+              facingMode: 'user' // Front camera
+            }, 
+            audio: false 
+          });
+          
           webcamVideo.srcObject = webcamStream;
           webcamVideo.style.display = 'block';
           webcamPlaceholder.style.display = 'none';
@@ -389,9 +429,50 @@
           } else {
             webcamVideo.onloadeddata = startSending;
           }
+          
+          updateStatus('Camera active - streaming video', 'success');
         } catch (err) {
           console.error('Webcam error', err);
-          updateStatus('Webcam permission denied', 'error');
+          let errorMessage = 'Camera access failed';
+          
+          if (err.name === 'NotAllowedError') {
+            errorMessage = 'Camera permission denied. Please allow camera access and refresh the page.';
+          } else if (err.name === 'NotFoundError') {
+            errorMessage = 'No camera found. Please connect a camera and try again.';
+          } else if (err.name === 'NotReadableError') {
+            errorMessage = 'Camera is being used by another application. Please close other apps and try again.';
+          } else if (err.name === 'OverconstrainedError') {
+            errorMessage = 'Camera constraints not supported. Trying with basic settings...';
+            // Try with basic constraints
+            try {
+              webcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+              webcamVideo.srcObject = webcamStream;
+              webcamVideo.style.display = 'block';
+              webcamPlaceholder.style.display = 'none';
+              updateStatus('Camera active with basic settings', 'success');
+              return;
+            } catch (retryErr) {
+              errorMessage = 'Camera access failed even with basic settings';
+            }
+          } else if (err.name === 'SecurityError') {
+            errorMessage = 'Camera access blocked by security policy. Please use HTTPS.';
+          }
+          
+          updateStatus(errorMessage, 'error');
+          
+          // Show detailed instructions
+          setTimeout(() => {
+            const instructions = `
+            <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px; margin: 10px 0; font-size: 14px;">
+              <strong>Camera Access Instructions:</strong><br>
+              1. Make sure you're using HTTPS (https://your-app.onrender.com)<br>
+              2. Click the camera icon in your browser's address bar<br>
+              3. Select "Allow" for camera access<br>
+              4. Refresh the page and try again<br>
+              5. If using Chrome, check chrome://settings/content/camera
+            </div>`;
+            document.getElementById('status').innerHTML = instructions;
+          }, 2000);
         }
       }
 
@@ -437,7 +518,29 @@
       async function toggleMic() {
         try {
           if (!micStream) {
-            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Check if we're on HTTPS or localhost
+            const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+            if (!isSecure) {
+              updateStatus('Microphone access requires HTTPS. Please use https://your-app.onrender.com', 'error');
+              return;
+            }
+
+            // Check if getUserMedia is supported
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+              updateStatus('Microphone access not supported in this browser', 'error');
+              return;
+            }
+
+            updateStatus('Requesting microphone access...', 'info');
+            
+            micStream = await navigator.mediaDevices.getUserMedia({ 
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                sampleRate: 16000
+              }
+            });
+            
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
             if (audioCtx.state === 'suspended') { await audioCtx.resume(); }
             const source = audioCtx.createMediaStreamSource(micStream);
@@ -494,7 +597,19 @@
           }
         } catch (err) {
           console.error('Mic error', err);
-          updateStatus('Microphone permission denied', 'error');
+          let errorMessage = 'Microphone access failed';
+          
+          if (err.name === 'NotAllowedError') {
+            errorMessage = 'Microphone permission denied. Please allow microphone access and refresh the page.';
+          } else if (err.name === 'NotFoundError') {
+            errorMessage = 'No microphone found. Please connect a microphone and try again.';
+          } else if (err.name === 'NotReadableError') {
+            errorMessage = 'Microphone is being used by another application. Please close other apps and try again.';
+          } else if (err.name === 'SecurityError') {
+            errorMessage = 'Microphone access blocked by security policy. Please use HTTPS.';
+          }
+          
+          updateStatus(errorMessage, 'error');
         }
       }
 
